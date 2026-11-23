@@ -90,6 +90,8 @@ h2{font-size:26px}
 .tw{display:flex;align-items:baseline;gap:8px;margin-top:4px;flex-wrap:wrap}
 .kg{font-family:var(--display);font-weight:800;font-size:26px;line-height:1}
 .kg small{font-size:15px;color:var(--muted);font-weight:700;margin-left:2px}
+.unit{cursor:pointer;border-bottom:1px dashed var(--faint)}
+.kg .unit{font-size:15px;color:var(--muted);font-weight:700;margin-left:2px}
 .lb{font-size:12px;color:var(--faint)}
 .chip{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;line-height:1.5;white-space:nowrap}
 .chip.up{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
@@ -109,7 +111,8 @@ h2{font-size:26px}
 .set.ok .sn{color:var(--green)}
 .wbox{position:relative}
 .wt{width:100%;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);font:600 17px var(--body);text-align:center;padding-right:22px;font-variant-numeric:tabular-nums}
-.wbox span{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none}
+.wbox span{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted)}
+.wbox .unit{padding:6px 2px}
 .step{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;height:44px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
 .step button{height:100%;font-size:22px;color:var(--muted)}
 .step output{text-align:center;font-weight:700;font-size:17px;font-variant-numeric:tabular-nums}
@@ -296,6 +299,10 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt = w => String(Math.round(w*100)/100).replace(".", ",");
 const lb = w => Math.round(w*2.2046);
+const U = () => S.unit === "lb" ? "lb" : "kg";
+const dwTxt = w => U() === "lb" ? String(lb(w)) : fmt(w);
+const kgOf = v => U() === "lb" ? Math.round(v/2.2046*100)/100 : Math.round(v*100)/100;
+const unitBtn = () => `<span class="unit" data-act="unit" role="button" aria-label="Changer l'unité (kg / lb)">${U()}</span>`;
 const pad = n => String(n).padStart(2,"0");
 const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const pISO = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
@@ -356,6 +363,7 @@ function initEx(id, s){
 function normalize(s){
   s = s && typeof s === "object" ? s : {};
   s.v = 1; s.updatedAt = s.updatedAt || 0;
+  s.unit = s.unit === "lb" ? "lb" : "kg";
   s.ex = s.ex || {}; s.live = s.live || {};
   s.added = s.added || {};
   ["j1","j2","j3"].forEach(d => {
@@ -504,18 +512,18 @@ function vCard(day, it){
   const e = EX[it.id], st = S.ex[it.id], sets = viewSets(day, it);
   const n = sets.filter(s => s.d).length, all = n === sets.length, open = ui.open.has(it.id);
   const last = st.last, delta = last ? Math.round((st.w - last.w)*100)/100 : 0;
-  const chip = st.est ? `<span class="chip est">${it.isNew && !last ? "Nouveau · à calibrer" : "À calibrer"}</span>` : delta > 0 ? `<span class="chip up">+${fmt(delta)} kg</span>` : delta < 0 ? `<span class="chip down">${fmt(delta)} kg</span>` : "";
-  const kg = st.w === 0 ? `<span class="kg">PdC</span><span class="lb">poids du corps</span>` : `<span class="kg num">${fmt(st.w)}<small>kg</small></span><span class="lb num">≈ ${lb(st.w)} lb</span>`;
+  const chip = st.est ? `<span class="chip est">${it.isNew && !last ? "Nouveau · à calibrer" : "À calibrer"}</span>` : delta > 0 ? `<span class="chip up">+${dwTxt(delta)} ${U()}</span>` : delta < 0 ? `<span class="chip down">${dwTxt(delta)} ${U()}</span>` : "";
+  const kg = st.w === 0 ? `<span class="kg">PdC</span><span class="lb">poids du corps</span>` : `<span class="kg num">${dwTxt(st.w)}${unitBtn()}</span><span class="lb num">≈ ${U() === "lb" ? fmt(st.w) + " kg" : lb(st.w) + " lb"}</span>`;
   let det = "";
   if (open){
     const rows = sets.map((s,i) => `
       <div class="set${s.d ? " ok" : ""}">
         <span class="sn">${i+1}</span>
-        <label class="wbox"><input class="wt" id="w-${day}-${it.id}-${i}" data-ex="${it.id}" data-i="${i}" type="text" inputmode="decimal" value="${fmt(s.w)}" aria-label="Charge série ${i+1} en kg"><span>kg</span></label>
+        <label class="wbox"><input class="wt" id="w-${day}-${it.id}-${i}" data-ex="${it.id}" data-i="${i}" type="text" inputmode="decimal" value="${dwTxt(s.w)}" aria-label="Charge série ${i+1} en ${U()}">${unitBtn()}</label>
         <div class="step"><button data-act="rep" data-ex="${it.id}" data-i="${i}" data-dv="-1" aria-label="Une rep de moins">−</button><output class="num">${s.r}<small>reps</small></output><button data-act="rep" data-ex="${it.id}" data-i="${i}" data-dv="1" aria-label="Une rep de plus">+</button></div>
         <button class="sbtn${s.d ? " on" : ""}" data-act="set" data-ex="${it.id}" data-i="${i}" aria-pressed="${s.d}" aria-label="Valider la série ${i+1}">${ICON_CHECK}</button>
       </div>`).join("");
-    const lastTxt = last ? `Dernière fois : <b class="num">${last.w === 0 ? "PdC" : fmt(last.w) + " kg"}${last.reps ? " × " + last.reps.join(" · ") : ""}</b>${last.src === "notes" ? " (tes notes)" : " · " + esc(fdate(last.date))}` : e.from && S.ex[e.from.id] ? `Départ estimé d’après ${esc(e.from.lbl)} (<b class="num">${fmt(S.ex[e.from.id].w)} kg</b>). Ajuste pour garder 2 reps en réserve.` : "Première fois : choisis une charge qui laisse 2 reps en réserve.";
+    const lastTxt = last ? `Dernière fois : <b class="num">${last.w === 0 ? "PdC" : dwTxt(last.w) + " " + U()}${last.reps ? " × " + last.reps.join(" · ") : ""}</b>${last.src === "notes" ? " (tes notes)" : " · " + esc(fdate(last.date))}` : e.from && S.ex[e.from.id] ? `Départ estimé d’après ${esc(e.from.lbl)} (<b class="num">${dwTxt(S.ex[e.from.id].w)} ${U()}</b>). Ajuste pour garder 2 reps en réserve.` : "Première fois : choisis une charge qui laisse 2 reps en réserve.";
     det = `<div class="det">
       <p class="cue">${esc(it.cue)}</p>
       <div class="hint">Objectif ${it.min}–${it.max} reps. Ajuste les reps réellement faites avant de valider.</div>
@@ -524,7 +532,7 @@ function vCard(day, it){
         <div class="last">${lastTxt}</div>
         <div class="acts">
           <a class="pill" href="https://www.youtube.com/results?search_query=${encodeURIComponent(e.yt)}" target="_blank" rel="noopener">${ICON_PLAY}Vidéo technique</a>
-          <button class="pill" data-act="inc" data-ex="${it.id}" aria-label="Changer le palier d’augmentation">Palier +${fmt(st.inc)} kg</button>
+          <button class="pill" data-act="inc" data-ex="${it.id}" aria-label="Changer le palier d’augmentation">Palier +${dwTxt(st.inc)} ${U()}</button>
         </div>
       </div>
     </div>`;
@@ -563,15 +571,15 @@ function vProgres(){
     const e = EX[id], st = S.ex[id];
     const series = (e.sug || e.base.est ? [] : [e.base.w]).concat(SESS.flatMap(s => s.entries.filter(x => x.id === id).map(x => x.w))).concat([st.w]);
     const from = series[0];
-    const chip = st.est ? `<span class="chip est">À calibrer</span>` : st.w > from ? `<span class="chip up">+${fmt(st.w - from)} kg</span>` : st.w < from ? `<span class="chip down">${fmt(st.w - from)} kg</span>` : `<span class="chip mute">stable</span>`;
+    const chip = st.est ? `<span class="chip est">À calibrer</span>` : st.w > from ? `<span class="chip up">+${dwTxt(st.w - from)} ${U()}</span>` : st.w < from ? `<span class="chip down">${dwTxt(st.w - from)} ${U()}</span>` : `<span class="chip mute">stable</span>`;
     return `<div class="lrow"><div class="pic">${pict(id)}</div><div style="min-width:0"><div class="name" style="font-size:15px">${esc(e.name)}</div>${spark(series) || `<div class="sm">Pas encore d’historique</div>`}</div>
-      <div class="r"><span class="kg num" style="font-size:22px">${st.w === 0 ? "PdC" : fmt(st.w)}<small>${st.w === 0 ? "" : "kg"}</small></span>${chip}</div></div>`;
+      <div class="r"><span class="kg num" style="font-size:22px">${st.w === 0 ? "PdC" : dwTxt(st.w)}${st.w === 0 ? "" : unitBtn()}</span>${chip}</div></div>`;
   }).join("");
   const hist = SESS.slice().reverse().map(s => `
     <div class="hist"><div class="hh" style="--pc:${DAYS[s.day] ? DAYS[s.day].col : "var(--faint)"}"><i></i>Jour ${DAYS[s.day] ? DAYS[s.day].n : "?"} · ${esc(DAYS[s.day] ? DAYS[s.day].name : "")}<span>${esc(fdate(s.date))}</span></div>
-      ${s.entries.map(x => `<div class="hl"><span>${esc(EX[x.id] ? EX[x.id].name : x.id)} <span class="res-${x.result}">${x.result === "up" ? "↑" : x.result === "down" ? "↓" : x.result === "low" ? "!" : ""}</span></span><span class="x">${x.w === 0 ? "PdC" : fmt(x.w) + " kg"} × ${x.reps.join(" · ")}</span></div>`).join("")}
+      ${s.entries.map(x => `<div class="hl"><span>${esc(EX[x.id] ? EX[x.id].name : x.id)} <span class="res-${x.result}">${x.result === "up" ? "↑" : x.result === "down" ? "↓" : x.result === "low" ? "!" : ""}</span></span><span class="x">${x.w === 0 ? "PdC" : dwTxt(x.w) + " " + U()} × ${x.reps.join(" · ")}</span></div>`).join("")}
     </div>`).join("");
-  const notes = Object.keys(EX).filter(id => !EX[id].sug && !EX[id].base.est).map(id => `<div class="hl"><span>${esc(EX[id].name)}</span><span class="x">${fmt(EX[id].base.w)} kg${EX[id].base.reps ? " × " + EX[id].base.reps.join(" · ") : ""}</span></div>`).join("");
+  const notes = Object.keys(EX).filter(id => !EX[id].sug && !EX[id].base.est).map(id => `<div class="hl"><span>${esc(EX[id].name)}</span><span class="x">${dwTxt(EX[id].base.w)} ${U()}${EX[id].base.reps ? " × " + EX[id].base.reps.join(" · ") : ""}</span></div>`).join("");
   return `
   <section class="dayhead"><div class="eyebrow">Suivi</div><h1>Progrès</h1></section>
   <div class="stats">
@@ -604,7 +612,7 @@ function vIdees(){
     <h2>Comment tes charges montent</h2>
     <ul>
       <li>Chaque machine a une fourchette de reps, par exemple 10–12.</li>
-      <li>Toutes tes séries au haut de la fourchette : la charge monte d’un palier à la séance suivante (+5 kg à la presse, +2,5 kg ailleurs).</li>
+      <li>Toutes tes séries au haut de la fourchette : la charge monte d’un palier à la séance suivante (+${dwTxt(5)} ${U()} à la presse, +${dwTxt(2.5)} ${U()} ailleurs).</li>
       <li>Entre les deux : même charge, tu vises une rep de plus par série.</li>
       <li>Sous le bas de la fourchette deux fois de suite : −10 % pour repartir propre.</li>
     </ul>
@@ -619,16 +627,16 @@ function vSheet(s){
   const vol = s.entries.reduce((a,x) => a + x.w * x.reps.reduce((p,r) => p + r, 0), 0);
   const lines = s.entries.map(x => {
     const nm = EX[x.id].name;
-    const o = x.result === "up" ? `<span class="res-up">↑ Prochaine fois ${fmt(x.next)} kg</span>` :
-      x.result === "down" ? `<span class="res-down">↓ Allège à ${fmt(x.next)} kg</span>` :
-      x.result === "low" ? `<span class="res-low">Reste à ${fmt(x.next)} kg, tu y es presque</span>` :
-      `<span style="color:var(--muted)">= Garde ${x.next === 0 ? "le poids du corps" : fmt(x.next) + " kg"}, vise une rep de plus</span>`;
-    return `<div class="sline"><span class="n">${esc(nm)}</span><span class="x">${x.w === 0 ? "PdC" : fmt(x.w) + " kg"} × ${x.reps.join(" · ")}</span><span class="o">${o}</span></div>`;
+    const o = x.result === "up" ? `<span class="res-up">↑ Prochaine fois ${dwTxt(x.next)} ${U()}</span>` :
+      x.result === "down" ? `<span class="res-down">↓ Allège à ${dwTxt(x.next)} ${U()}</span>` :
+      x.result === "low" ? `<span class="res-low">Reste à ${dwTxt(x.next)} ${U()}, tu y es presque</span>` :
+      `<span style="color:var(--muted)">= Garde ${x.next === 0 ? "le poids du corps" : dwTxt(x.next) + " " + U()}, vise une rep de plus</span>`;
+    return `<div class="sline"><span class="n">${esc(nm)}</span><span class="x">${x.w === 0 ? "PdC" : dwTxt(x.w) + " " + U()} × ${x.reps.join(" · ")}</span><span class="o">${o}</span></div>`;
   }).join("");
   return `<div class="ov" data-act="close-sheet"><div class="sheet" role="dialog" aria-modal="true" aria-label="Séance terminée" data-stop="1">
     <div class="eyebrow" style="color:var(--green)">Jour ${DAYS[s.day].n} · ${esc(fdate(s.date))}</div>
     <h2>Séance terminée</h2>
-    <div><div class="big num">${Math.round(vol).toLocaleString("fr-CA")} kg</div><div class="sm">soulevés au total</div></div>
+    <div><div class="big num">${(U() === "lb" ? Math.round(vol*2.2046) : Math.round(vol)).toLocaleString("fr-CA")} ${U()}</div><div class="sm">soulevés au total</div></div>
     <div>${lines}</div>
     <button class="cta" style="--acc:var(--green)" data-act="close-sheet">Fermer</button>
   </div></div>`;
@@ -666,6 +674,7 @@ document.addEventListener("click", ev => {
   const a = t.dataset.act;
   if (a === "close-sheet"){ if (ev.target.closest("[data-stop]") && t.classList.contains("ov")) return; ui.sheet = null; render(); return; }
   if (a === "tab"){ ui.tab = t.dataset.t; ui.confirm = false; render(); window.scrollTo(0,0); return; }
+  if (a === "unit"){ S.unit = S.unit === "lb" ? "kg" : "lb"; save(); render(); return; }
   if (a === "day"){ ui.day = t.dataset.d; ui.open.clear(); ui.confirm = false; render(); return; }
   if (a === "rest-close"){ stopRest(); return; }
   if (a === "rest-add"){ if (rest) rest.end = Math.max(rest.end, Date.now()) + 30000; drawRest(); return; }
@@ -716,9 +725,9 @@ document.addEventListener("change", ev => {
   const t = ev.target; if (!t.matches || !t.matches(".wt")) return;
   const v = parseFloat(String(t.value).replace(",", "."));
   const it = findItem(t.dataset.ex);
-  if (!it || !isFinite(v) || v < 0 || v > 500){ render(); return; }
+  if (!it || !isFinite(v) || v < 0 || v > (U() === "lb" ? 1100 : 500)){ render(); return; }
   const sets = liveSets(ui.day, it), i = +t.dataset.i, old = sets[i].w;
-  sets[i].w = Math.round(v*100)/100;
+  sets[i].w = kgOf(v);
   for (let k = i+1; k < sets.length; k++) if (!sets[k].d && sets[k].w === old) sets[k].w = sets[i].w;
   save(); render();
 });
